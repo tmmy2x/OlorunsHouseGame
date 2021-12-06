@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>OlorunsHouse front-end</title>
+    <script language="javascript" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script language="javascript" type="text/javascript" src="web3.min.js"></script>
+    <script language="javascript" type="text/javascript" src="OlorunsHouse_abi.js"></script>
+  </head>
+  <body>
+    <div id="txStatus"></div>
+    <div id="deities"></div>
+    
+    <script>
+      var olorunsHouse;
+      var userAccount;
+
+      function startApp() {
+        var olorunsHouseAddress = "YOUR_CONTRACT_ADDRESS";
+        olorunsHouse = new web3js.eth.Contract(olorunsHouseABI, olorunsHouseAddress);
+        
+        var accountInterval = setInterval(function() {
+
+          if (web3.eth.accounts[0] !== userAccount) {
+            userAccount = web3.eth.accounts[0];
+
+            getDeitiesByOwner(userAccount)
+            .then(displayDeities);
+          }
+        }, 100);
+
+        olorunsHouse.events.Transfer({ filter: { _to: userAccount } })
+        .on("data", function(event) {
+          let data = event.returnValues;
+          getDeitiesByOwner(userAccount).then(displayDeities);
+        }).on("error", console.error);
+      }
+
+      function displayDeities(ids) {
+        $("#deities").empty();
+        for (id of ids) {
+
+          getDeityDetails(id)
+          .then(function(deity) {
+            
+
+            $("#deities").append(`<div class="deity">
+              <ul>
+                <li>Name: ${deity.name}</li>
+                <li>DNA: ${deity.dna}</li>
+                <li>Level: ${deity.level}</li>
+                <li>Wins: ${deity.winCount}</li>
+                <li>Losses: ${deity.lossCount}</li>
+                <li>Ready Time: ${deity.readyTime}</li>
+              </ul>
+            </div>`);
+          });
+        }
+      }
+
+      function createRandomDeity(name) {
+        
+
+        $("#txStatus").text("Creating new deity on the blockchain. This may take a while...");
+       
+        return olorunsHouse.methods.createRandomDeity(name)
+        .send({ from: userAccount })
+        .on("receipt", function(receipt) {
+          $("#txStatus").text("Successfully created " + name + "!");
+
+          getDeitiesByOwner(userAccount).then(displayDeities);
+        })
+        .on("error", function(error) {
+
+          $("#txStatus").text(error);
+        });
+      }
+
+      function devourOnKitty(deityId, kittyId) {
+        $("#txStatus").text("Devouring a kitty. This may take a while...");
+       
+       return olorunsHouse.methods.devourOnKitty(deityId, kittyId)
+       .send({ from: userAccount })
+       .on("receipt", function(receipt) {
+         $("#txStatus").text("Devoured a kitty and spawned a new Deity!");
+
+         getDeitiesByOwner(userAccount).then(displayDeities);
+       })
+       .on("error", function(error) {
+        
+        $("#txStatus").text(error);
+      });
+    }
+    
+    
+    function levelUp(deityId) {
+      $("#txStatus").text("Leveling up your deity...");
+      return olorunsHouse.methods.levelUp(deityId)
+      .send({ from: userAccount, value: web3js.utils.toWei("0.002", "ether") })
+      .on("receipt", function(receipt) {
+        $("#txStatus").text("Forece immensing! Deity successfully leveled up");
+      })
+      .on("error", function(error) {
+        $("#txStatus").text(error);
+      });
+    }
+
+      function getDeityDetails(id) {
+        return olorunsHouse.methods.deities(id).call()
+      }
+
+      function deityToOwner(id) {
+        return olorunsHouse.methods.deityToOwner(id).call()
+      }
+
+      function getDeitiesByOwner(owner) {
+        return olorunsHouse.methods.getDeitiesByOwner(owner).call()
+      }
+
+      window.addEventListener('load', function() {
+
+       
+        if (typeof web3 !== 'undefined') {
+ 
+          web3js = new Web3(web3.currentProvider);
+        } else {
+ 
+ 
+        }
+
+
+        startApp()
+
+    })  
+    </script>
+  </body>
+</html>
